@@ -69,10 +69,8 @@ const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
 
 const main = async () => {
     const adapterFlow = createFlow([welcomeFlow, agentFlow, activeBot, flow, talkToAgent, goodBye])
-
     const adapterProvider = createProvider(Provider)
     const adapterDB = new Database()
-
     const bot = await createBot({
         flow: adapterFlow,
         provider: adapterProvider,
