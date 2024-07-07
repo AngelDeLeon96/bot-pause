@@ -4,7 +4,7 @@ import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 import { reactivarBot } from './utils/timer.js'
 import controlBot from './utils/status.js'
 import { EVENTS } from '@builderbot/bot'
-
+import ServerHttp from './http/server.js'
 const PORT = process.env.PORT ?? 3008
 
 const goodBye = addKeyword(EVENTS.ACTION).addAnswer('BYE')
@@ -82,7 +82,8 @@ const main = async () => {
 
 
     bot.httpServer(+PORT)
-    console.log(adapterProvider)
+    const server = new ServerHttp(adapterProvider)
+    server.start()
 
     adapterProvider.on('message', ({ body, from }) => {
         //bot desactivado
