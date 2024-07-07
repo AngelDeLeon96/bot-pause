@@ -5,6 +5,7 @@ import { reactivarBot } from './utils/timer.js'
 import controlBot from './utils/status.js'
 import { EVENTS } from '@builderbot/bot'
 import ServerHttp from './http/server.js'
+import sendMessageChatwood from './services/chatwood.js'
 const PORT = process.env.PORT ?? 3008
 
 const goodBye = addKeyword(EVENTS.ACTION).addAnswer('BYE')
@@ -85,11 +86,18 @@ const main = async () => {
 
     adapterProvider.on('message', ({ body, from }) => {
         //bot desactivado
-        if (controlBot.status == false) {
-            //sendMessage('body')
-            //se los mensajes wb se siguen recibiendo, pero en el CRM no, por ende se deben enviar al CRM, tambien
-            console.log(`Message Payload:`, { body, from })
+        try {
+            if (controlBot.status == false) {
+                //sendMessage('body')
+                //se los mensajes wb se siguen recibiendo, pero en el CRM no, por ende se deben enviar al CRM, tambien
+                sendMessageChatwood(body, 'incoming', 2)
+                console.log(`Message Payload:`, { body, from })
+            }
         }
+        catch (err) {
+            console.error(err)
+        }
+
     })
 
     bot.on('send_message', ({ answer, from }) => {
