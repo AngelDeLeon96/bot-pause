@@ -1,134 +1,50 @@
 import { createBot, createProvider, createFlow, addKeyword, utils } from '@builderbot/bot'
 import { MemoryDB as Database } from '@builderbot/bot'
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
-import { reactivarBot } from './utils/timer.js'
-import controlBot from './utils/status.js'
-import { EVENTS } from '@builderbot/bot'
-import ServerHttp from './http/server.js'
-import sendMessageChatwood from './services/chatwood.js'
+import { numberClean } from './utils/utils.js'
+
 const PORT = process.env.PORT ?? 3008
+const ADMIN_NUMBER = process.env.ADMIN_NUMBER ?? '50764681728'
+console.log(ADMIN_NUMBER)
 
-const goodBye = addKeyword(EVENTS.ACTION).addAnswer('BYE')
+const blackListFlow = addKeyword('mute')
+    .addAction(async (ctx, { blacklist, flowDynamic }) => {
 
-const talkToAgent = addKeyword('talk')
-    //.addAction(async (ctx, { gotoFlow }) => reactivarBot(ctx, gotoFlow))
-    .addAnswer(`desea hablar con un agente?\n Si, No`, { capture: true }, async (ctx, { state }) => {
-        await state.update({ res: ctx.body })
-    })
-    .addAction(async (_, { flowDynamic, state, gotoFlow }) => {
-        //await provider.sendTet(agent, `El usuario X con numero ${ctx.from} quiere hablar con un agente.`)
-        console.log(state.get('res'))
-        if (state.get('res').toLowerCase() == 'si') {
-            //await flowDynamic('Un agente se poindra en contacto.')
-            return gotoFlow(agentFlow)
+        const toMute = ctx.from.replace('+', '') //Mute +34000000 message incoming
+        const check = blacklist.checkIf(toMute)
+        console.log('muted', check, ctx.body, toMute)
+        if (!check) {
+            blacklist.add(toMute)
+            await flowDynamic(`❌ ${toMute} muted`)
+            return
         }
-        else {
-            return gotoFlow(goodBye)
-        }
+        blacklist.remove(toMute)
+        await flowDynamic(`🆗 ${toMute} unmuted`)
+        return
+
     })
 
-const agentFlow = addKeyword('agente')
-    .addAction(async (ctx, { flowDynamic, provider }) => {
-        controlBot.status = false;
-        await flowDynamic('Modo libre...')
-        console.log('bot status: ', controlBot)
-        const id = ctx.key.remoteJid
-        const name = ctx.name
-        const agent = id
-        console.log('Activado modo libre', name)
+const fullSamplesFlow = addKeyword(['samples', utils.setEvent('SAMPLES')])
+    .addAction(async (ctx, { blacklist }) => {
+        const toMute = ctx.from.replace('+', '')
+        const check = blacklist.checkIf(toMute)
+        console.log('muted', check, ctx.from)
     })
-
-const activeBot = addKeyword('bot')
-    .addAction(async (ctx, { flowDynamic, provider }) => {
-        controlBot.status = true
-    })
-
-const flow = addKeyword('hello')
-    .addAnswer(`What is your name?`, { capture: true }, async (ctx, { state }) => {
-        await state.update({ name: ctx.body })
-    })
-    .addAction(async (ctx, { state, flowDynamic, gotoFlow }) => {
-        const name = state.get('name')
-        await flowDynamic(`Your name is: ${name}`)
-    })
-    .addAction(async (_, { gotoFlow }) => {
-        return gotoFlow(talkToAgent)
-    })
-
-
-const welcomeFlow = addKeyword(['hi', 'hello', 'hola'])
-    .addAnswer('🙌')
-    .addAction(async (ctx, { endFlow, gotoFlow }) => {
-        console.log(controlBot)
-        if (controlBot.status == false)
-            return endFlow()
-        return gotoFlow(flow)
-    }).addAnswer('BIEnvenido')
-
-
-
+    .addAnswer(`💪 I'll send you a lot files...`)
 
 const main = async () => {
-    const adapterFlow = createFlow([welcomeFlow, agentFlow, activeBot, flow, talkToAgent, goodBye])
+    const adapterFlow = createFlow([fullSamplesFlow, blackListFlow])
+
     const adapterProvider = createProvider(Provider)
     const adapterDB = new Database()
-    const bot = await createBot({
+
+    const { httpServer } = await createBot({
         flow: adapterFlow,
         provider: adapterProvider,
         database: adapterDB,
     })
 
-
-
-    bot.httpServer(+PORT)
-    const server = new ServerHttp(adapterProvider)
-    server.start()
-
-    adapterProvider.on('message', ({ body, from }) => {
-        //bot desactivado
-        try {
-            if (controlBot.status == false) {
-                //sendMessage('body')
-                //se los mensajes wb se siguen recibiendo, pero en el CRM no, por ende se deben enviar al CRM, tambien
-                sendMessageChatwood(body, 'incoming', 2)
-                console.log(`Message Payload:`, { body, from })
-            }
-        }
-        catch (err) {
-            console.error(err)
-        }
-
-    })
-
-    bot.on('send_message', ({ answer, from }) => {
-        console.log(`Send Message Payload:`, { answer, from })
-    })
-
-    adapterProvider.on('messages.upsert', async (msg) => {
-        const message = msg.messages[0]
-        if (!message.key.fromMe) {
-            console.log('Mensaje recibido:', message)
-            await adapterProvider.sendMessage(message.key.remoteJid, { text: 'Hola! Recibí tu mensaje.' })
-        }
-    })
-
-    adapterProvider.on('messages.upsert', async ({ messages, type }) => {
-        if (type === 'notify') {
-            for (const msg of messages) {
-                const message = msg.messages[0];
-                if (!message.key.fromMe) {
-                    console.log('Nuevo mensaje recibido: ', message);
-                } else {
-                    console.log('Mensaje enviado por el agente: ', message);
-                }
-            }
-        }
-    });
-
-    adapterProvider.on('message-update', async (msg) => {
-        console.log('Mensaje actualizado o enviado: ', msg);
-    });
-
+    httpServer(+PORT)
 }
 
 main()
