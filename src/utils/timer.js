@@ -14,6 +14,8 @@ const idleFlow = addKeyword(EVENTS.ACTION).addAction(
     }
 );
 
+const botReactivated = addKeyword(EVENTS.ACTION).addAnswer('Bot reactivado...')
+
 // Función para iniciar el temporizador de inactividad para un usuario
 const start = (ctx, gotoFlow, ms = TIMER) => {
     timers[ctx.from] = setTimeout(() => {
@@ -23,12 +25,16 @@ const start = (ctx, gotoFlow, ms = TIMER) => {
     }, ms);
 }
 //reactiva el bot despues de X tiempo
-const reactivarBot = (ctx, gotoFlow, ms = TIMER) => {
+const reactivarBot = (ctx, gotoFlow, blacklist, ms = TIMER) => {
     timers[ctx.from] = setTimeout(() => {
-        console.log(`User timeout: ${ctx.from}`);
+        const toMute = ctx.from.replace('+', '')
+        const check = blacklist.checkIf(toMute)
 
-        controlBot.status = true
-        //return gotoFlow(flujoFinal);
+        if (check) {
+            blacklist.remove(toMute)
+            //console.log(`bot reactivado para: ${ctx.from}`);
+            return gotoFlow(botReactivated)
+        }
     }, ms);
 }
 
@@ -55,4 +61,5 @@ export {
     stop,
     reactivarBot,
     flujoFinal,
+    botReactivated,
 }
